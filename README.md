@@ -26,6 +26,8 @@ Because we use [varints](https://developers.google.com/protocol-buffers/docs/enc
 
 A client reading this data will be able to use a switch statement on the chunk ID (1, 2, or 3) and read back each data blob knowing what to do with it. If, in the future, we want to add stories to our social media platform, we can introduce chunkID #4, and clients that don't yet support stories will be able to skip over that chunk.
 
+Chunk ID 0 is reserved as a continuation signal - this facilitates writing data without knowing its size ahead of time by being able to split it into chunks. So TSD that looks like `[1][6]Hello [0][6]world!` will simply be read together as `Hello world!` with ID 1.
+
 ## What's in the Box
 
 This repo contains a Go library to facilitate reading, writing, and inspecting Tiny Streaming Data. In the future I may add support for more languages, but it shouldn't be difficult to build your own reader/writer in any language that is also supported by protobuf.

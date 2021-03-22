@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"io/ioutil"
 )
 
 type ChunkID = uint64
@@ -14,16 +15,17 @@ type TSDWriter struct {
 	buf []byte
 }
 
+// Create a new TSD writer to start writing in TSD format
 func NewTSDWriter(w io.Writer) *TSDWriter {
 	return &TSDWriter{
 		w: w,
-		// random pre-allocated buffer for copies, speeds up allocations
+		// pre-allocate buffer to speed up copies
 		buf: make([]byte, 32*1024),
 	}
 }
 
 // Write a small chunk with
-func (t TSDWriter) Write(id ChunkID, data []byte) error {
+func (t *TSDWriter) Write(id ChunkID, data []byte) error {
 	buf := make([]byte, binary.MaxVarintLen64+binary.MaxVarintLen32)
 	n := binary.PutUvarint(buf, id)
 	n += binary.PutUvarint(buf[n:], uint64(len(data)))
@@ -35,32 +37,37 @@ func (t TSDWriter) Write(id ChunkID, data []byte) error {
 	return err
 }
 
-// getting a little clever here to save space with the streamer
-// 16383 is the largest number that can be represented by 2 bytes as a varint
-const streamingChunkSize int = 16383
-const continuationChunkID = ChunkID(0)
 
-// Stream in a long chunk with undefined length
-func (t TSDWriter) Stream(id ChunkID, r io.Reader) error {
-	chunk := make([]byte, streamingChunkSize)
-	for i := 0; ; i++ {
-		n, err := io.ReadFull(r, chunk)
-		if err == io.EOF {
-			return nil
-		}
+type TSDReader struct {
+	r ByteReaderReader
+	prev *io.LimitedReader
+}
+
+type ByteReaderReader interface {
+	io.ByteReader
+	io.Reader
+}
+
+func NewTSDReader(r ByteReaderReader) *TSDReader {
+	return &TSDReader{r: r}
+}
+
+// Next gets the next chunk in the TSD stream. Client can get the
+func (t *TSDReader) Next() (ChunkID, io.Reader, error) {
+	if t.prev != nil && t.prev.N > 0 {
+		_, err := io.Copy(ioutil.Discard, t.prev)
 		if err != nil {
-			return err
-		}
-		if i == 0 {
-			err = t.Write(id, chunk)
-		} else {
-			err = t.Write(continuationChunkID, chunk)
-		}
-		if err != nil {
-			return err
-		}
-		if n != streamingChunkSize {
-			return nil
+			return 0, nil, err
 		}
 	}
+	id, err := binary.ReadUvarint(t.r)
+	if err != nil {
+		return 0, nil, err
+	}
+	ln, err := binary.ReadUvarint(t.r)
+	if err != nil {
+		return 0, nil, err
+	}
+	t.prev = &io.LimitedReader{R: t.r, N: int64(ln)}
+	return id, t.prev, nil
 }

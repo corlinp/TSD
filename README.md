@@ -1,2 +1,31 @@
-# TSD
-Tiny Streaming Data format
+# Tiny Streaming Data (TSD) Format
+
+TSD is a simple and extensible file/data format optimized for applications that involve binary data streaming where every byte matters. It is inspired by interchange formats such as RIFF and IFF.
+
+TSD solves the problem of packing different types of binary data in a single file or stream. This is commonly encountered in packing [protobuf data](https://developers.google.com/protocol-buffers/docs/techniques#streaming). Protobuf needs to read an entire message into memory at once, so to stream data to an application or use large datasets, you need to pack it into a different format.
+
+## Format Specification
+
+In TSD, much like RIFF, binary data blobs are packed in 'chunks', each with an identifier and a length field. In TSD, headers are removed and protobuf varints are used instead of fixed-length fourCC's to improve efficiency and allow for larger datasets with more chunk types.
+
+A TSD file is an indefinitely repeating structure:
+
+`[uvarint chunk ID][uvarint chunk length][binary data]...[ID][length][data]...`
+
+Readers of TSD files use the chunk ID and length to pull a blob of data and handle it specially. Consider a file type used for streaming a user's social media activity in one efficient stream. We can define different types of posts as different chunk IDs and what their data represents:
+
+1. Text Post (ASCII text)
+2. Like (ID of liked post)
+3. Photo (JPG data)
+
+This can create data chunks like: 
+
+`[1][12]Hello world![3][42178]d^T<DF>=s<C5>DН<DD>E>;sԚ...[2][6]776541`
+
+Because we use [varints](https://developers.google.com/protocol-buffers/docs/encoding#varints), packing data like `Hello world!` (with a chunk ID of 1 and a length of 12) only takes two additional bytes. Chunk IDs can be any 64-bit unsigned integer, but chunks that occur more frequently should have lower ID values to take up less space.
+
+A client reading this data will be able to use a switch statement on the chunk ID (1, 2, or 3) and read back each data blob knowing what to do with it. If, in the future, we want to add stories to our social media platform, we can introduce chunkID #4, and clients that don't yet support stories will be able to skip over that chunk.
+
+## What's in the Box
+
+This repo contains a Go library to facilitate reading, writing, and inspecting Tiny Streaming Data. In the future I may add support for more languages, but it shouldn't be difficult to build your own reader/writer in any language that is also supported by protobuf.

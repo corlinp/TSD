@@ -37,6 +37,15 @@ func (t *Writer) Write(id ChunkID, data []byte) error {
 	return err
 }
 
+// ChunkEncoder interface makes it easy to extend TSD to write fun things in the file
+type ChunkEncoder interface {
+	Encode() []byte
+	ChunkID() ChunkID
+}
+
+func (t *Writer) WriteFrom(c ChunkEncoder) error {
+	return t.Write(c.ChunkID(), c.Encode())
+}
 
 type Reader struct {
 	r ByteReaderReader

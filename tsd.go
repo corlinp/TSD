@@ -16,7 +16,7 @@ type Writer struct {
 }
 
 // Create a new TSD writer to start writing in TSD format
-func NewTSDWriter(w io.Writer) *Writer {
+func NewWriter(w io.Writer) *Writer {
 	return &Writer{
 		w: w,
 		// pre-allocate buffer to speed up copies
@@ -48,7 +48,7 @@ type ByteReaderReader interface {
 	io.Reader
 }
 
-func NewTSDReader(r ByteReaderReader) *Reader {
+func NewReader(r ByteReaderReader) *Reader {
 	return &Reader{r: r}
 }
 

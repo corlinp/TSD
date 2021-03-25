@@ -18,13 +18,13 @@ func TestTSD(t *testing.T) {
 		}
 	}
 
-	w := NewTSDWriter(buf)
+	w := NewWriter(buf)
 	check(w.Write(1, data1))
 	check(w.Write(2, data2))
 	check(w.Write(1, data2))
 	check(w.Write(2, data2))
 
-	r := NewTSDReader(buf)
+	r := NewReader(buf)
 	id, reader, err := r.Next()
 	check(err)
 	if id != 1 {
